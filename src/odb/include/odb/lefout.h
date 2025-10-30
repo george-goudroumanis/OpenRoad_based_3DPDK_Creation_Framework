@@ -17,6 +17,7 @@
 #include "odb/dbTypes.h"
 #include "odb/geom.h"
 #include "odb/odb.h"
+#include "odb/3DPDKconfig.h"
 #include "utl/Logger.h"
 
 namespace odb {
@@ -46,6 +47,8 @@ class lefout
   utl::Logger* logger_;
   int bloat_factor_;
   bool bloat_occupied_layers_;
+
+  odb::Config_3DPDK* config_3D_pdk_;
 
   template <typename GenericBox>
   void writeBoxes(dbBlock* block, dbSet<GenericBox>& boxes, const char* indent);
@@ -105,6 +108,33 @@ class lefout
                          ObstructionMap& obstructions) const;
   void insertObstruction(dbBox* box, ObstructionMap& obstructions) const;
 
+  template <typename GenericBox>
+  void write3DBoxes(dbBlock* block, dbSet<GenericBox>& boxes, const char* indent, int tier);
+  void write3DMTerm(dbMTerm* mterm, int tier);
+  void write3DObstructions(dbBlock* db_block, int tier);
+  void write3DBlockVia(dbBlock* db_block, dbVia* via, int tier);
+  void write3DBlock(dbBlock* db_block, int tier);
+  void write3DPins(dbBlock* db_block, int tier);
+  void write3DPowerPins(dbBlock* db_block, int tier);
+  void write3DBlockTerms(dbBlock* db_block, int tier);
+  void write3DNonDefaultRule(dbTech* tech, dbTechNonDefaultRule* rule, int tier);
+  void write3DLayerRule(dbTechLayerRule* rule, int tier);
+  void write3DSameNetRule(dbTechSameNetRule* rule, int tier);
+  void write3DTechViaRule(dbTechViaRule* rule, int tier);
+  void write3DTechViaGenerateRule(dbTechViaGenerateRule* rule, int tier);
+  void write3DVia(dbTechVia* via, int tier);
+  void write3DLayer(dbTechLayer* layer, int tier);
+  void write3DMaster(dbMaster* master, int tier);
+  bool isValidIntegrationTransition(const std::string& previous, const std::string& current);
+  dbTech* findTechForTier(const std::vector<dbTech*>& techs, const Config_3DPDK::TierInfo& tier);
+  void writeTierLayers(dbTech* tier_tech, const Config_3DPDK::TierInfo& tier, const std::vector<dbTechLayer*>& tier_layers, size_t tier_idx, const std::string& integration_type);
+  void writeGeneralTechInfo(dbTech* tech);
+  void collectTierLayers(dbTech* tech, const Config_3DPDK::TierInfo& tier,std::vector<dbTechLayer*>& tier_layers);
+  std::vector<dbTechLayer*> synthesizeMIVLayer(size_t tier_idx, odb::dbSet<odb::dbTech> MIV_tech);
+  void writeTierWithIntegration(size_t tier_idx, const std::vector<dbTechLayer*>& tier_layers, dbTechLayer* miv_layer, const std::string& integration_type);
+  void writeViasAndRules(int tier_idx, dbTech* tech, std::vector<dbTechLayer*> miv_table, std::vector<size_t> miv_indexes);
+  void writeMakeTracksFile(const std::string& filename, const std::vector<odb::dbTech*>& techs);
+
  public:
   double lefdist(int value) { return value * _dist_factor; }
   double lefarea(int value) { return value * _area_factor; }
@@ -129,6 +159,14 @@ class lefout
   void writeLib(dbLib* lib);
   void writeTechAndLib(dbLib* lib);
   void writeAbstractLef(dbBlock* db_block);
+
+  void write3DTechBody(const std::vector<dbTech*>& techs, odb::dbSet<odb::dbTech> MIV_tech);
+  void write3DLibBody(dbLib* lib, int tier_index);
+  void setConfig(odb::Config_3DPDK* config);
+  void write3DTech(const std::vector<dbTech*>& techs, odb::dbSet<odb::dbTech> MIV_tech);
+  void write3DLib(dbLib* lib, int tier_index);
+  void write3DTechAndLib(std::vector<dbTech*>& techs, odb::dbSet<odb::dbTech> MIV_tech, std::vector<dbLib*>& libs);
+  void write3DLEFs(const char* filename, odb::Config_3DPDK config);
 
   std::ostream& out() { return _out; }
 

@@ -47,9 +47,9 @@ utl::metric "IFP::ord_version" [ord::openroad_git_describe]
 # Note that sta::network_instance_count is not valid after tapcells are added.
 utl::metric "IFP::instance_count" [sta::network_instance_count]
 
-initialize_floorplan -site $site \
-  -die_area $die_area \
-  -core_area $core_area
+initialize_floorplan -site FreePDK45_38x28_10R_NP_162NW_34O \
+  -die_area {0 0 1020 920.8} \
+  -core_area {10 12 1010 911.2}
 
 source $tracks_file
 

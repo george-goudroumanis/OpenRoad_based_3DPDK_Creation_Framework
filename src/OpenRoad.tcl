@@ -129,6 +129,14 @@ proc write_lef { args } {
   ord::write_lef_cmd $filename
 }
 
+proc write_3DPDK { args } {
+  sta::parse_key_args "write_3DPDK" args keys {} flags {}
+
+  sta::check_argc_eq1 "write_3DPDK" $args
+  set filename [file nativename [lindex $args 0]]
+  ord::write_3DPDK_cmd $filename
+}
+
 proc write_abstract_lef { args } {
   sta::parse_key_args "write_abstract_lef" args keys {-bloat_factor} flags {-bloat_occupied_layers}
 

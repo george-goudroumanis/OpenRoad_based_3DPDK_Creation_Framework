@@ -337,6 +337,13 @@ write_lef_cmd(const char *filename)
 }
 
 void
+write_3DPDK_cmd(const char *filename)
+{
+  OpenRoad *ord = getOpenRoad();
+  ord->write3DPDK(filename);
+}
+
+void
 write_abstract_lef_cmd(const char *filename,
                        int bloat_factor,
                        bool bloat_occupied_layers)

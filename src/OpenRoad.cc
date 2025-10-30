@@ -57,6 +57,7 @@
 #include "odb/defout.h"
 #include "odb/lefin.h"
 #include "odb/lefout.h"
+#include "odb/3DPDKconfig.h"
 #include "ord/InitOpenRoad.hh"
 #include "pad/MakeICeWall.h"
 #include "par/MakePartitionMgr.h"
@@ -77,6 +78,7 @@
 #include "rsz/Resizer.hh"
 #include "sta/VerilogReader.hh"
 #include "sta/VerilogWriter.hh"
+#include "sta/LibertyWriter.hh"
 #include "stt/MakeSteinerTreeBuilder.h"
 #include "tap/MakeTapcell.h"
 #include "tap/tapcell.h"
@@ -89,7 +91,9 @@
 #include "utl/Progress.h"
 #include "utl/ScopedTemporaryFile.h"
 #include "utl/decode.h"
+#include <filesystem>
 
+namespace fs = std::filesystem;
 namespace ord {
 extern const char* ord_tcl_inits[];
 }  // namespace ord
@@ -469,6 +473,241 @@ void OpenRoad::writeLef(const char* filename)
   }
 }
 
+void OpenRoad::write3DPDK(const char* filename)
+{
+
+    auto toLower = [](std::string s) {
+      std::transform(s.begin(), s.end(), s.begin(),
+                    [](unsigned char c){ return std::tolower(c); });
+      return s;
+    };
+
+    logger_->info(utl::ODB, 2000, "==============================================");
+    logger_->info(utl::ODB, 2001, "Starting 3D PDK Write Process");
+    logger_->info(utl::ODB, 2002, "==============================================");
+
+    // --- Step 1: Parse Configuration ---
+    logger_->info(utl::ODB, 2003, "STEP 1: Parsing 3D PDK Configuration File: {}", filename);
+    odb::Config_3DPDK config = odb::Config_3DPDK::parse3DPDKconfigfile(logger_, filename);
+
+    // --- Step 2: Log Configuration Overview ---
+    logger_->info(utl::ODB, 2004, "STEP 2: Configuration Overview");
+    logger_->info(utl::ODB, 2010, "  Workspace Dir        : {}", config.getWorkspaceDir());
+    logger_->info(utl::ODB, 2011, "  Integration Mode     : {}", config.getIntegrationMode());
+    logger_->info(utl::ODB, 2012, "  Tier Count           : {}", config.getTiers().size());
+
+    const auto& tiers = config.getTiers();
+    const auto& integration_stack = config.getIntegrationStack();
+
+    if (tiers.empty()) {
+        logger_->error(utl::ODB, 2013, "No tiers found in 3D PDK configuration. Aborting.");
+        return;
+    }
+
+    // --- Step 3: Log Each Tier ---
+    logger_->info(utl::ODB, 2014, "STEP 3: Tier Summary");
+    for (const auto& tier : tiers) {
+        logger_->info(utl::ODB, 2015,
+                      "  Tier '{}' (role: {}, orientation: {}, PDK: {}, DB: {})",
+                      tier.name, tier.role, tier.orientation, tier.pdk_name, tier.db_path);
+    }
+
+    // --- Step 4: Log Integration Stack ---
+    logger_->info(utl::ODB, 2016, "STEP 4: Integration Stack Overview");
+    for (const auto& link : integration_stack) {
+        std::string ic_list;
+        for (const auto& ic : link.interconnects) {
+            ic_list += fmt::format("{}({}) ", ic.name, ic.type);
+        }
+        logger_->info(utl::ODB, 2017,
+                      "  {} -> {} [integration: {}, bonding: {}, ICs: {}]",
+                      link.from_tier, link.to_tier,
+                      link.integration_type, link.bonding_mode, ic_list);
+    }
+
+    // --- Step 5: Load Interconnect LEFs ---
+    logger_->info(utl::ODB, 2018, "STEP 5: Loading Interconnect LEFs...");
+    std::vector<odb::dbDatabase*> tier_dbs;
+    std::vector<odb::dbTech*> techs;
+    std::vector<odb::dbLib*> libs;
+    odb::dbSet<odb::dbTech> MIV_tech;
+
+    ord::OpenRoad* tier_Interconnects = ord::OpenRoad::openRoad();
+    for (const auto& link : integration_stack) {
+        for (auto& ic : link.interconnects) {
+            logger_->info(utl::ODB, 2019, "  Interconnect '{}' | type: {} | file: {}",
+                          ic.name, ic.type, ic.lef_path);
+            if (!ic.lef_path.empty()) {
+                try {
+                    tier_Interconnects->readLef(ic.lef_path.c_str(), ic.name.c_str(), ic.name.c_str(), true, true);
+                    logger_->info(utl::ODB, 2020, "    -> Successfully loaded LEF for '{}'", ic.name);
+                } catch (const std::exception& e) {
+                    logger_->warn(utl::ODB, 2021, "    -> Failed to load LEF for '{}': {}", ic.name, e.what());
+                }
+            } else {
+                logger_->warn(utl::ODB, 2022, "    -> LEF path not defined for '{}'", ic.name);
+            }
+        }
+    }
+
+    MIV_tech = tier_Interconnects->getDb()->getTechs();
+    if (MIV_tech.size() > 0)
+        logger_->info(utl::ODB, 2023, "MIV Tech extracted successfully.");
+    else
+        logger_->warn(utl::ODB, 2024, "No MIV Tech found in interconnect database.");
+
+    // --- Step 6: Load Each Tier’s DB ---
+    logger_->info(utl::ODB, 2025, "STEP 6: Loading Tier Databases...");
+    for (const auto& tier : tiers) {
+        if (tier.db_path.empty()) {
+            logger_->warn(utl::ODB, 2026, "  Tier '{}' has no DB path defined; skipping.", tier.name);
+            continue;
+        }
+
+        logger_->info(utl::ODB, 2027, "  Loading DB for tier '{}' from {}", tier.name, tier.db_path);
+        odb::dbDatabase* tier_db = odb::dbDatabase::create();
+
+        try {
+            std::ifstream db_stream(tier.db_path, std::ios::binary);
+            if (!db_stream) {
+                logger_->error(utl::ODB, 2028, "    Failed to open DB file: {}", tier.db_path);
+                continue;
+            }
+
+            db_stream.exceptions(std::ifstream::failbit | std::ifstream::badbit | std::ios::eofbit);
+            tier_db->read(db_stream);
+            db_stream.close();
+
+            logger_->info(utl::ODB, 2029, "    Successfully loaded DB for '{}'.", tier.name);
+            tier_dbs.push_back(tier_db);
+            
+            // Tech + Libs
+            odb::dbTech* tech = tier_db->getTech();
+            if (tech) {
+                logger_->info(utl::ODB, 2030, "    Tech found: {}", tech->getName());
+                techs.push_back(tech);
+            } else {
+                logger_->warn(utl::ODB, 2031, "    No tech section found for '{}'", tier.name);
+            }
+
+            auto db_libs = tier_db->getLibs();
+            logger_->info(utl::ODB, 2032, "    Found {} libraries in '{}'", db_libs.size(), tier.name);
+            for (auto* lib : db_libs) {
+                libs.push_back(lib);
+            }
+
+        } catch (const std::exception& e) {
+            logger_->error(utl::ODB, 2033, "    Error reading DB for '{}': {}", tier.name, e.what());
+            odb::dbDatabase::destroy(tier_db);
+        }
+    }
+
+    // --- Step 7: Write Combined Tech LEF ---
+    logger_->info(utl::ODB, 2034, "STEP 7: Writing Composite 3D Tech LEF...");
+    if (!techs.empty()) {
+        std::string out_name = config.getWorkspaceDir() + "/3D_multi_tiers_tech.lef";
+        logger_->info(utl::ODB, 2035, "  Output: {}", out_name);
+        utl::OutStreamHandler stream_handler(out_name.c_str());
+        odb::lefout lef_writer(logger_, stream_handler.getStream());
+        lef_writer.setConfig(&config);
+        lef_writer.write3DTech(techs, MIV_tech);
+        logger_->info(utl::ODB, 2036, "  Composite Tech LEF written successfully.");
+    } else {
+        logger_->warn(utl::ODB, 2037, "  No technology data found to write composite LEF.");
+    }
+
+    // --- Step 8: Write Libraries ---
+    logger_->info(utl::ODB, 2038, "STEP 8: Writing Tier Libraries...");
+    if (!libs.empty()) {
+        int cnt = 0;
+        std::vector<std::string> written_tiers; // Track which tiers have been written
+        for (auto* lib : libs) {
+            if (lib->getName().find("tech") != std::string::npos) {
+              printf("Skipping tech lib: %s\n", lib->getName().c_str());
+              continue;
+            }
+
+            int tier_index = 0;
+            for (const auto& tier : config.getTiers()) {
+              std::string target_pdk = toLower(tier.pdk_name);
+              std::string lib_pdk = toLower(lib->getName());
+
+              if (lib_pdk.find(target_pdk) != std::string::npos) {
+                // Skip if this tier index has already been processed
+                if (written_tiers.size() > 0 ) {
+                  if (std::find(written_tiers.begin(), written_tiers.end(), tier.name) != written_tiers.end()) {
+                    printf("  Tier %s already processed, skipping lib: %s\n", tier.name.c_str(), lib->getName().c_str());
+                    tier_index++;
+                    continue;
+                  }
+                }
+
+                printf("  Matched tier: %s with lib: %s, index %d\n", tier.name.c_str(), lib->getName().c_str(), tier_index);
+                std::string out_name = fmt::format("{}/{}_{}.lef",
+                                                  config.getWorkspaceDir(),
+                                                  lib->getName(),
+                                                  tier.name.c_str());
+                logger_->info(utl::ODB, 2039, "  Writing Library {} -> {}", cnt, out_name);
+                utl::OutStreamHandler stream_handler(out_name.c_str());
+                odb::lefout lef_writer(logger_, stream_handler.getStream());
+
+                lef_writer.setConfig(&config);
+                lef_writer.write3DLib(lib, tier_index);
+
+                written_tiers.push_back(tier.name); // Mark this tier as processed
+                tier_index++;
+                break;
+              }
+            }
+            cnt++;
+        }
+    } else {
+        logger_->warn(utl::ODB, 2040, "  No libraries found in tier databases.");
+    }
+
+    // --- Step 9: Write Liberty Files ---
+    logger_->info(utl::ODB, 2041, "STEP 9: Writing Liberty Files...");
+    int count = 0;
+    for (const auto& tier : tiers) {
+        if (tier.liberty_files.empty()) {
+            continue;
+        }
+
+        for (const auto& lib_file : tier.liberty_files) {
+            sta::dbSta* sta = getSta();
+
+            sta::LibertyLibrary* liberty = sta->readLiberty(lib_file.c_str(), getSta()->cmdCorner(), sta::MinMaxAll::all(), true /* infer_latches */);
+            if (!liberty) {
+                logger_->error(utl::ODB, 2042, "  Failed to read liberty file: {}", lib_file);
+                continue;
+            }
+
+            std::string base_name = fs::path(liberty->filename()).stem().string();
+            std::string out_name = fmt::format("{}/{}_{}.lib",
+                                                    config.getWorkspaceDir(),
+                                                    base_name,
+                                                    tier.name);
+            logger_->info(utl::ODB, 2043, "  Exporting Liberty File: {}", out_name);
+            FILE* stream = fopen(out_name.c_str(), "w");
+            sta::write3DLiberty(liberty, out_name.c_str(), sta, tier.name);
+            fclose(stream);
+        }
+      count++;
+    }
+    
+
+    // --- Step 10: Final Summary ---
+    logger_->info(utl::ODB, 2044, "STEP 10: Summary & Cleanup");
+    logger_->info(utl::ODB, 2045, "  Loaded {} tier DBs", tier_dbs.size());
+    logger_->info(utl::ODB, 2046, "  Loaded {} techs", techs.size());
+    logger_->info(utl::ODB, 2047, "  Loaded {} libraries", libs.size());
+    logger_->info(utl::ODB, 2048, "  Loaded {} liberty files", count);
+    logger_->info(utl::ODB, 2049, "==============================================");
+    logger_->info(utl::ODB, 2050, "3D PDK composite export complete.");
+    logger_->info(utl::ODB, 2051, "==============================================");
+}
+
+
 void OpenRoad::writeCdl(const char* out_filename,
                         const std::vector<const char*>& masters_filenames,
                         bool include_fillers)
@@ -529,6 +768,7 @@ void OpenRoad::readDb(std::istream& stream)
                     | std::ios::eofbit);
 
   db_->read(stream);
+  printf("    STA Default library: %s\n", sta_->getDbNetwork()->defaultLibertyLibrary()->filename());
 }
 
 void OpenRoad::writeDb(std::ostream& stream)

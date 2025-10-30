@@ -3,8 +3,9 @@
 
 add_library(lefout
     lefout.cpp
+    3DPDKconfig.cpp       # Add the new 3DPDK config source file
 )
-
+find_package(yaml-cpp REQUIRED)
 target_include_directories(lefout
     PUBLIC
         ${PROJECT_SOURCE_DIR}/include
@@ -15,6 +16,7 @@ target_link_libraries(lefout
     db
     utl_lib
     Boost::boost
+    yaml-cpp
 )
 
 set_target_properties(lefout
