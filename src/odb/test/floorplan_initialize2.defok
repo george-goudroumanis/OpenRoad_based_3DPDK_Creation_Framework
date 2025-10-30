@@ -1,16 +1,3 @@
-VERSION 5.8 ;
-DIVIDERCHAR "/" ;
-BUSBITCHARS "[]" ;
-DESIGN counter ;
-UNITS DISTANCE MICRONS 1000 ;
-DIEAREA ( 0 0 ) ( 100000 100000 ) ;
-COMPONENTS 1 ;
-    - x0\/d0 DFFPOSX1 + SOURCE DIST + PLACED ( 20000 30000 ) N ;
-END COMPONENTS
-PINS 1 ;
-    - out + NET out + DIRECTION OUTPUT + USE SIGNAL ;
-END PINS
-NETS 1 ;
-    - out ( PIN out ) ( x0\/d0 Q ) + USE SIGNAL ;
-END NETS
-END DESIGN
+version https://git-lfs.github.com/spec/v1
+oid sha256:35f3e088ec9189a60c73311e3eb1c5a02b30f7f65dac27d5050ca3459e0501af
+size 380

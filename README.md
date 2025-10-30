@@ -1,367 +1,174 @@
-# OpenROAD
-
-[![Build Status](https://jenkins.openroad.tools/buildStatus/icon?job=OpenROAD-Public%2Fmaster)](https://jenkins.openroad.tools/job/OpenROAD-Public/job/master/)
-[![Coverity Scan Status](https://scan.coverity.com/projects/the-openroad-project-openroad/badge.svg)](https://scan.coverity.com/projects/the-openroad-project-openroad)
-[![Documentation Status](https://readthedocs.org/projects/openroad/badge/?version=latest)](https://openroad.readthedocs.io/en/latest/?badge=latest)
-[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/5370/badge)](https://bestpractices.coreinfrastructure.org/en/projects/5370)
-
-## About OpenROAD
-
-OpenROAD is the leading open-source, foundational application for
-semiconductor digital design. The OpenROAD flow delivers an
-Autonomous, No-Human-In-Loop (NHIL) flow, 24 hour turnaround from
-RTL-GDSII for rapid design exploration and physical design implementation.
-
-```mermaid
-%%{
-  init: {
-    'theme': 'neutral',
-    'themeVariables': {
-      'textColor': '#000000',
-      'noteTextColor' : '#000000',
-      'fontSize': '20px'
-    }
-  }
-}%%
-
-flowchart LR
-    b0[                  ] --- b2[ ] --- b4[ ] --- ORFlow --- b1[ ] --- b3[ ] --- b5[                  ]
-    style b0 stroke-width:0px, fill: #FFFFFF00, color:#FFFFFF00
-    style b1 stroke-width:0px, fill: #FFFFFF00
-    style b2 stroke-width:0px, fill: #FFFFFF00
-    style b3 stroke-width:0px, fill: #FFFFFF00
-    style b4 stroke-width:0px, fill: #FFFFFF00
-    style b5 stroke-width:0px, fill: #FFFFFF00, color:#FFFFFF00
-
-    linkStyle 0 stroke-width:0px
-    linkStyle 1 stroke-width:0px
-    linkStyle 2 stroke-width:0px
-    linkStyle 3 stroke-width:0px
-    linkStyle 4 stroke-width:0px
-    linkStyle 5 stroke-width:0px
-
-
-    subgraph ORFlow
-    direction TB
-    style ORFlow fill:#ffffff00, stroke-width:0px
-        A[Verilog
-        + libraries
-        + constraints] --> FLOW
-        style A fill:#74c2b5,stroke:#000000,stroke-width:4px
-        subgraph FLOW
-        style FLOW fill:#FFFFFF00,stroke-width:4px
-
-        direction TB
-            B[Synthesis]
-            B --> C[Floorplan]
-            C --> D[Placement]
-            D --> E[Clock Tree Synthesis]
-            E --> F[Routing]
-            F --> G[Finishing]
-            style B fill:#f8cecc,stroke:#000000,stroke-width:4px
-            style C fill:#fff2cc,stroke:#000000,stroke-width:4px
-            style D fill:#cce5ff,stroke:#000000,stroke-width:4px
-            style E fill:#67ab9f,stroke:#000000,stroke-width:4px
-            style F fill:#fa6800,stroke:#000000,stroke-width:4px
-            style G fill:#ff6666,stroke:#000000,stroke-width:4px
-        end
-
-        FLOW --> H[GDSII
-        Final Layout]
-        %% H --- H1[ ]
-        %% style H1 stroke-width:0px, fill: #FFFFFF00
-        %% linkStyle 11 stroke-width:0px
-        style H fill:#ff0000,stroke:#000000,stroke-width:4px
-    end
-
-```
-
-
-## OpenROAD Mission
-
-[OpenROAD](https://theopenroadproject.org/) eliminates the barriers
-of cost, schedule risk and uncertainty in hardware design to promote
-open access to rapid, low-cost IC design software and expertise and
-system innovation. The OpenROAD application enables flexible flow
-control through an API with bindings in Tcl and Python.
-
-OpenROAD is used in research and commercial applications such as,
-- [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts)
-  from [OpenROAD](https://theopenroadproject.org/)
-- [OpenLane](https://github.com/The-OpenROAD-Project/OpenLane) from
-  [Efabless](https://efabless.com/)
-- [Silicon Compiler](https://github.com/siliconcompiler/siliconcompiler)
-  from [Zero ASIC](https://www.zeroasic.com/)
-- [Hammer](https://docs.hammer-eda.org/en/latest/Examples/openroad-nangate45.html)
-  from [UC Berkeley](https://github.com/ucb-bar)
-- [OpenFASoC](https://github.com/idea-fasoc/OpenFASOC) from
-  [IDEA-FASoC](https://github.com/idea-fasoc) for mixed-signal design flows
-
-OpenROAD fosters a vibrant ecosystem of users through active
-collaboration and partnership through software development and key
-alliances. Our growing user community includes hardware designers,
-software engineers, industry collaborators, VLSI enthusiasts,
-students and researchers.
-
-OpenROAD strongly advocates and enables IC design-based education
-and workforce development initiatives through training content and
-courses across several global universities, the Google-SkyWater
-[shuttles](https://platform.efabless.com/projects/public) also
-includes GlobalFoundries shuttles, design contests and IC design
-workshops. The OpenROAD flow has been successfully used to date
-in over 600 silicon-ready tapeouts for technologies up to 12nm.
-
-## Getting Started with OpenROAD-flow-scripts
-
-OpenROAD provides [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts)
-as a native, ready-to-use prototyping and tapeout flow. However,
-it also enables the creation of any custom flow controllers based
-on the underlying tools, database and analysis engines. Please refer to the flow documentation [here](https://openroad-flow-scripts.readthedocs.io/en/latest/).
-
-OpenROAD-flow-scripts (ORFS) is a fully autonomous, RTL-GDSII flow
-for rapid architecture and design space exploration, early prediction
-of QoR and detailed physical design implementation. However, ORFS
-also enables manual intervention for finer user control of individual
-flow stages through Tcl commands and Python APIs.
-
-Figure below shows the main stages of the OpenROAD-flow-scripts:
-
-```mermaid
-%%{init: { 'logLevel': 'debug', 'theme': 'dark'
-  } }%%
-timeline
-  title RTL-GDSII Using OpenROAD-flow-scripts
-  Synthesis
-    : Inputs  [RTL, SDC, .lib, .lef]
-    : Logic Synthesis  (Yosys)
-    : Output files  [Netlist, SDC]
-  Floorplan
-    : Floorplan Initialization
-    : IO placement  (random)
-    : Timing-driven mixed-size placement
-    : Macro placement
-    : Tapcell and welltie insertion
-    : PDN generation
-  Placement
-    : Global placement without placed IOs
-    : IO placement  (optimized)
-    : Global placement with placed IOs
-    : Resizing and buffering
-    : Detailed placement
-  CTS : Clock Tree Synthesis
-    : Timing optimization
-    : Filler cell insertion
-  Routing
-    : Global Routing
-    : Detailed Routing
-  Finishing
-    : Metal Fill insertion
-    : Signoff timing report
-    : Generate GDSII  (KLayout)
-    : DRC/LVS check (KLayout)
-```
-
-Here are the main steps for a physical design implementation
-using OpenROAD;
-
-- `Floorplanning`
-  - Floorplan initialization - define the chip area, utilization
-  - IO pin placement (for designs without pads)
-  - Tap cell and well tie insertion
-  - PDN- power distribution network creation
-- `Global Placement` 
-  - Macro placement (RAMs, embedded macros)
-  - Standard cell placement
-  - Automatic placement optimization and repair for max slew,
-    max capacitance, and max fanout violations and long wires
-- `Detailed Placement`
-  - Legalize placement - align to grid, adhere to design rules
-  - Incremental timing analysis for early estimates
-- `Clock Tree Synthesis` 
-  - Insert buffers and resize for high fanout nets
-- `Optimize setup/hold timing`
-- `Global Routing`
-  - Antenna repair
-  - Create routing guides
-- `Detailed Routing`
-  - Legalize routes, DRC-correct routing to meet timing, power
-    constraints
-- `Chip Finishing`
-  - Parasitic extraction using OpenRCX
-  - Final timing verification
-  - Final physical verification
-  - Dummy metal fill for manufacturability
-  - Use KLayout or Magic using generated GDS for DRC signoff
-
-### GUI
-
-The OpenROAD GUI is a powerful visualization, analysis, and debugging
-tool with a customizable Tcl interface. The below figures show GUI views for
-various flow stages including floorplanning, placement congestion,
-CTS and post-routed design.
-
-#### Floorplan
-
-![ibex_floorplan.webp](./docs/images/ibex_floorplan.webp)
-
-#### Automatic Hierarchical Macro Placement
-
-![Ariane133](./docs/images/ariane133_mpl2.webp)
-
-#### Placement Congestion Visualization
-
-![pl_congestion.webp](./docs/images/pl_congestion.webp)
-
-#### CTS
-
-![clk_routing.webp](./docs/images/clk_routing.webp)
-
-#### Routing
-
-![ibex_routing.webp](./docs/images/ibex_routing.webp)
-
-### PDK Support
-
-The OpenROAD application is PDK independent. However, it has been tested
-and validated with specific PDKs in the context of various flow
-controllers.
-
-OpenLane supports SkyWater 130nm and GlobalFoundries 180nm.
-
-OpenROAD-flow-scripts supports several public and private PDKs
-including:
-
-#### Open-Source PDKs
-
--   `GF180` - 180nm
--   `SKY130` - 130nm
--   `Nangate45` - 45nm
--   `ASAP7` - Predictive FinFET 7nm
-
-#### Proprietary PDKs
-
-These PDKS are supported in OpenROAD-flow-scripts only. They are used to
-test and calibrate OpenROAD against commercial platforms and ensure good
-QoR. The PDKs and platform-specific files for these kits cannot be
-provided due to NDA restrictions. However, if you are able to access
-these platforms independently, you can create the necessary
-platform-specific files yourself.
-
--   `GF55` - 55nm
--   `GF12` - 12nm
--   `Intel22` - 22nm
--   `Intel16` - 16nm
--   `TSMC65` - 65nm
-
-## Tapeouts
-
-OpenROAD has been used for full physical implementation in over
-600 tapeouts in SKY130 and GF180 through the Google-sponsored,
-Efabless [MPW shuttle](https://efabless.com/open_shuttle_program)
-and [ChipIgnite](https://efabless.com/) programs.
-
-![shuttle.webp](./docs/images/shuttle.webp)
-
-### OpenTitan SoC on GF12LP - Physical design and optimization using OpenROAD
-
-![OpenTitan_SoC.webp](./docs/images/OpenTitan_SoC.webp)
-
-### Continuous Tapeout Integration into CI
-
-The OpenROAD project actively adds successfully taped out MPW shuttle
-designs to the [CI regression
-testing](https://github.com/The-OpenROAD-Project/OpenLane-MPW-CI).
-Examples of designs include Open processor cores, RISC-V based SoCs,
-cryptocurrency miners, robotic app processors, amateur satellite radio
-transceivers, OpenPower-based Microwatt etc.
-
-## Build OpenROAD
-
-To build OpenROAD tools locally on your machine, follow steps
-from [here](docs/user/Build.md).
-
-## Regression Tests
-
-There are a set of executable regression test scripts in `./test/`.
-
-``` shell
-# run tests for all tools
-./test/regression
-
-# run all flow tests
-./test/regression flow
-
-# run <tool> tests
-./test/regression <tool>
-
-# run all <tool>-specific unit tests
-cd src/<tool>
-./test/regression
-
-# run only <TEST_NAME> for <tool>
-cd src/<tool>
-./test/regression <TEST_NAME>
-```
-
-The flow tests check results such as worst slack against reference values.
-Use `report_flow_metrics [test]...` to see all of the metrics.
-
-``` text
-% report_flow_metrics gcd_nangate45
-                       insts    area util slack_min slack_max  tns_max clk_skew max_slew max_cap max_fanout DPL ANT drv
-gcd_nangate45            368     564  8.8     0.112    -0.015     -0.1    0.004        0       0          0   0   0   0
-```
-
-To update a failing regression, follow the instructions below:
+# 🧱 OpenROAD 3D PDK Creation Framework
+
+## Overview
+
+The **OpenROAD 3D PDK Creation Framework** extends the OpenROAD ecosystem to enable **native 3D Process Design Kit (3D PDK)** creation and integration.  
+It provides an automated flow for combining multiple 2D PDKs (LEF, Liberty, and DB files) into a cohesive **multi-tier 3D technology stack**.
+
+This framework introduces a **YAML-based configuration system (`*.config`)** that describes the entire 3D integration hierarchy — from per-tier definitions to bonding and interconnect details.
+
+With this framework, designers can:
+- Define **tiers** (logic, memory, analog, etc.) with independent PDKs.
+- Specify **integration modes** (F2F, F2B, B2B, or hybrid).
+- Describe **inter-tier interconnects** such as TSVs or microbumps.
+- Include **bonding and enclosure information** for accurate physical modeling.
+- Automatically generate **3D-aware LEF, Liberty, and routing files** from the configuration.
+
+In essence, this framework transforms OpenROAD into a **3D PDK synthesis and integration platform**, bridging 2D PDK assets into unified 3D-compatible design environments.
+
+
+## ✳️ Key Features
+
+### 🧩 3D Configuration Manager (`Config_3DPDK`)
+- Parses **YAML-based configuration files** describing tiers, interconnects, and bonding.
+- Stores **technology, geometry, and hierarchy information** for each tier.
+- Supports direct loading of **`.db`**, **LEF**, and **Liberty** files per tier.
+- Provides structured access to inter-tier connections, enclosures, and bonding metadata.
+- Enables consistent configuration transfer across OpenROAD modules.
+
+### 🏗️ 3D PDK Writer (`write3DPDK`)
+- Loads the `.db` files of all tiers into **independent OpenDB databases**.
+- Extracts **`dbTech`** and **`dbLib`** objects for each tier.
+- Generates a **unified 3D PDK representation**, including:
+  - Combined 3D LEFs
+  - Merged Liberty files
+  - Tier-specific and global routing tracks (`tracks.tcl`)
+
+### 🧾 LEF/Lib Writer (`lefout`)
+- Writes **per-tier and merged 3D LEF** files.
+- Integrates **TSV** and **microbump** LEFs into the composite 3D stack.
+- Automatically generates **routing track definitions** for each metal layer.
+- Logs all generation steps through `logger_` for traceability and debugging.
+
+### 🧠 Smart Logging and Data Management
+- Centralized logging system using `logger_` for info, warning, and error tracking.
+- Tier databases are isolated to **prevent symbol and naming conflicts**.
+- Full compatibility with existing OpenROAD TCL workflows and database structures.
+
+### ⚡ Automation and Extensibility
+- Fully scriptable through the **`write_3DPDK` TCL command**.
+- Supports incremental tier addition or removal via YAML edits.
+- Easily integrates into existing OpenROAD design automation flows.
+
+
+## ⚙️ Configuration File Structure (`.config`)
+
+Each 3D PDK project is described using a single YAML configuration file (`*.config`).  
+This file defines all tiers, integration modes, interconnects, and their technology dependencies.
+
+---
+
+### 🧾 Example Configuration
+
+```yaml
+openroad_root: /path/to/OpenROAD
+workspace_dir: /path/to/3D_workspace
+integration_mode: hybrid
+tracks_file_path: /path/to/3D_workspace/tracks.tcl
+
+tiers:
+  - id: T0
+    name: logic_tier
+    role: logic
+    orientation: R0
+    pdk:
+      name: nangate45
+      root: /path/to/nangate45
+      db_path: /path/to/2D_PDK_Nangate45.db
+      liberty_files:
+        - path: /path/to/Nangate45_typ.lib
+        - path: /path/to/Nangate45_fast.lib
+        - path: /path/to/Nangate45_slow.lib
+    thickness: 20.0
+    offset_z: 0.0
+    flip_x: false
+    flip_y: false
+    min_metal_layer: metal1
+    max_metal_layer: metal10
+    vdd_net: VDD
+    gnd_net: VSS
+
+integration:
+  stack:
+    - from_tier: logic_tier
+      to_tier: memory_tier
+      integration_type: F2F
+      bonding_mode: hybrid_bond
+      bonding_interface_layer: BOND_LYR
+      interconnects:
+        - type: TSV
+          name: TSV_L2
+          lef_path: /path/to/TSV.lef
+          bottom_enclosure: [2.0, 2.0]
+          top_enclosure: [3.0, 3.0]
+
+| Section               | Description                                                                                        |
+| --------------------- | -------------------------------------------------------------------------------------------------- |
+| **openroad_root**     | Path to the OpenROAD installation.                                                                 |
+| **workspace_dir**     | Base directory for generated outputs (LEF, LIB, tracks, etc.).                                     |
+| **integration_mode**  | Defines the 3D integration type (e.g., `F2F`, `F2B`, `hybrid`).                                    |
+| **tiers**             | List of technology tiers, each representing one physical layer stack (logic, memory, cache, etc.). |
+| **pdk**               | Contains the tier’s database and library file paths.                                               |
+| **integration.stack** | Describes the vertical interconnections and bonding between tiers.                                 |
+| **interconnects**     | Defines TSVs, microbumps, or hybrid interfaces, including enclosure geometry and LEF paths.        |
+
+⚠️ YAML Formatting Notes
+
+Indentation is critical — use two spaces per level.
+Keys like pdk, tiers, and integration must be followed by a colon (:).
+Paths should use forward slashes /, and if spaces are present, wrap them in quotes.
+File extensions must match the expected format (.lef, .lib, .db, .config).
+
+## 🧩 Usage
+
+Once your `.config` file is ready, you can generate a full 3D PDK using OpenROAD’s built-in TCL command.
+
+---
+
+### 🧠 TCL Command (inside OpenROAD)
 
 ```tcl
-# update log files (i.e. *ok)
-save_ok <TEST_NAME>
+write_3DPDK path/to/your_config_file.config
 
-# update "*.metrics" for tests that use flow test
-save_flow_metrics <TEST_NAME> 
+⚙️ Execution Flow
 
-# update "*.metrics_limits" files
-save_flow_metrics_limits <TEST_NAME>
-```
+Parses the YAML configuration
+The framework reads the .config file and validates the tier, interconnect, and bonding definitions.
 
-## Run
+Loads tier databases
+Each tier’s .db file is independently loaded into its own odb::dbDatabase instance to prevent symbol conflicts.
 
-``` text
-openroad [-help] [-version] [-no_init] [-exit] [-gui]
-         [-threads count|max] [-log file_name] [-db file_name] cmd_file
-  -help              show help and exit
-  -version           show version and exit
-  -no_init           do not read .openroad init file
-  -threads count|max use count threads
-  -no_splash         do not show the license splash at startup
-  -exit              exit after reading cmd_file
-  -gui               start in gui mode
-  -python            start with python interpreter [limited to db operations]
-  -log <file_name>   write a log in <file_name>
-  -db <file_name>    open a .odb database at startup
-  cmd_file           source cmd_file
-```
+Extracts and merges LEFs and LIBs
+Each tier’s dbTech and dbLib data are collected and combined into cohesive 3D technology files.
 
-OpenROAD sources the Tcl command file `~/.openroad` unless the command
-line option `-no_init` is specified.
+Generates routing track definitions
+The framework extracts metal layer pitch and offset information and writes it to a tracks.tcl file.
 
-OpenROAD then sources the command file `cmd_file` if it is specified on
-the command line. Unless the `-exit` command line flag is specified, it
-enters an interactive Tcl command interpreter.
+Logs progress
+All information, warnings, and errors are reported using the logger_ interface in OpenROAD’s console.
 
-A list of the available tools/modules included in the OpenROAD app
-and their descriptions are available [here](docs/contrib/Logger.md#openroad-tool-list).
+📦 Output Files
 
-## Git Quickstart
-OpenROAD uses Git for version control and contributions. 
-Get familiarised with a quickstart tutorial to contribution [here](docs/contrib/GitGuide.md).
+Generated inside your workspace directory (e.g., /3D_workspace/outputs/):
 
+composite_3d.lef          # Unified 3D technology LEF
+combined_tiers.lef        # Merged LEF from all tiers
+combined_tiers.lib        # Aggregated Liberty library
+tracks.tcl                # Routing track configuration
+tier_reports/             # Logs per tier
+ ├── logic_tier.log
+ ├── cache_tier.log
+ └── memory_tier.log
 
-## Understanding Warning and Error Messages
-Seeing OpenROAD warnings or errors you do not understand? We have compiled a table of all messages
-and you may potentially find your answer [here](https://openroad.readthedocs.io/en/latest/user/MessagesFinal.html).
+🧩 Example Run
+openroad
+openroad> write_3DPDK test/3DPDK_Nangate45.config
+[INFO ODB-2000] ==============================================
+[INFO ODB-2001] Starting 3D PDK Write Process
+[INFO ODB-2002] ==============================================
+[INFO ODB-2003] STEP 1: Parsing 3D PDK Configuration File: test/3DPDK_Nangate45.config
+[INFO ODB-3000] Initialized 3D PDK configuration manager.
+[INFO ODB-3005] Reading tier databases and generating 3D LEFs...
+[INFO ODB-3010] Output written to: /3D_workspace/outputs/
+openroad> exit
 
-## License
-
-BSD 3-Clause License. See [LICENSE](LICENSE) file.
